@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scripts de Atendimento</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    .ico { display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;vertical-align:middle; }
+    .ico svg { width:100%;height:100%;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round; }
+    :root {
+      --bg:#0a0a0f;--surface:#13131a;--surface2:#1c1c28;--border:#2a2a3d;
+      --accent:#7c5cfc;--text:#e8e8f0;--text-muted:#6b6b8a;
+      --success:#3dd68c;--danger:#fc5c7d;--warning:#f5c842;--star:#f5c842;
+      --mono:'Space Mono',monospace;--sans:'Syne',sans-serif;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;}
+    body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:40px 40px;opacity:.3;pointer-events:none;z-index:0;}
+    .container{position:relative;z-index:1;max-width:760px;margin:0 auto;padding:2rem 1.5rem;}
+
+    /* Header */
+    header{border-bottom:1px solid var(--border);padding-bottom:1.5rem;margin-bottom:1.5rem;display:flex;align-items:flex-start;justify-content:space-between;}
+    header h1{font-size:clamp(1.6rem,4vw,2.2rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;}
+    header h1 span{color:var(--accent);}
+    .subtitle{margin-top:.4rem;color:var(--text-muted);font-size:.85rem;font-family:var(--mono);}
+
+    /* Hamburger */
+    .menu-wrap{position:relative;}
+    .hamburger-btn{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;padding:8px 10px;display:flex;flex-direction:column;gap:4px;transition:border-color .2s,color .2s;}
+    .hamburger-btn:hover{border-color:var(--accent);color:var(--text);}
+    .hamburger-btn span{display:block;width:18px;height:2px;background:currentColor;border-radius:2px;}
+    .dropdown-menu{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;min-width:200px;z-index:200;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.4);display:none;}
+    .dropdown-menu.open{display:block;animation:fadeIn .15s ease;}
+    .dropdown-item{display:flex;align-items:center;gap:10px;padding:.75rem 1rem;font-family:var(--mono);font-size:.78rem;color:var(--text-muted);cursor:pointer;transition:background .15s,color .15s;text-transform:uppercase;letter-spacing:.05em;border:none;background:none;width:100%;text-align:left;}
+    .dropdown-item:hover{background:var(--surface2);color:var(--text);}
+    .dropdown-item.export:hover{color:var(--success);}
+    .dropdown-item.import:hover{color:var(--warning);}
+    .dropdown-item.partners-btn:hover{color:var(--accent);}
+    .dropdown-item.reset-btn{color:var(--text-muted);}
+    .dropdown-item.reset-btn:hover{background:#2b0d1a;color:var(--danger);}
+    .dropdown-divider{height:1px;background:var(--border);}
+    #import-input{display:none;}
+
+    /* Toast */
+    #toast{position:fixed;top:1.5rem;right:1.5rem;padding:.85rem 1.25rem;border-radius:6px;font-family:var(--mono);font-size:.8rem;z-index:1000;opacity:0;transform:translateY(-10px);transition:all .3s ease;max-width:320px;border-left:3px solid;pointer-events:none;display:flex;align-items:center;gap:8px;}
+    #toast.show{opacity:1;transform:translateY(0);}
+    #toast.success{background:#0d2b1f;border-color:var(--success);color:var(--success);}
+    #toast.error{background:#2b0d1a;border-color:var(--danger);color:var(--danger);}
+    #toast.info{background:#1a1a2b;border-color:var(--accent);color:var(--accent);}
+
+    /* Filter bar toggles */
+    .filter-toggles{display:flex;gap:.5rem;margin-bottom:.75rem;align-items:center;flex-wrap:wrap;}
+    .filter-toggle-btn{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;padding:5px 12px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px;}
+    .filter-toggle-btn:hover{border-color:var(--accent);color:var(--text);}
+    .filter-toggle-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(124,92,252,.08);}
+    .filter-toggle-btn .count{background:var(--accent);color:#fff;border-radius:10px;padding:0 5px;font-size:.65rem;line-height:1.6;}
+
+    /* Sort button */
+    .sort-wrap{position:relative;margin-left:auto;}
+    .sort-btn{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;padding:5px 12px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px;}
+    .sort-btn:hover{border-color:var(--accent);color:var(--text);}
+    .sort-btn.active{border-color:var(--accent);color:var(--accent);}
+    .sort-dropdown{position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;min-width:180px;z-index:150;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.4);display:none;}
+    .sort-dropdown.open{display:block;animation:fadeIn .15s ease;}
+    .sort-option{display:flex;align-items:center;gap:8px;padding:.65rem 1rem;font-family:var(--mono);font-size:.75rem;color:var(--text-muted);cursor:pointer;transition:background .15s,color .15s;border:none;background:none;width:100%;text-align:left;text-transform:uppercase;letter-spacing:.05em;}
+    .sort-option:hover{background:var(--surface2);color:var(--text);}
+    .sort-option.active{color:var(--accent);}
+
+    /* Collapsible filter panels */
+    .filter-panel{overflow:hidden;max-height:0;transition:max-height .25s ease,margin .25s ease;}
+    .filter-panel.open{max-height:120px;margin-bottom:.75rem;}
+    .chip-bar{display:flex;gap:.5rem;flex-wrap:wrap;padding:2px 0;}
+    .partner-chip{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;transition:all .2s;white-space:nowrap;}
+    .partner-chip:hover{border-color:var(--accent);color:var(--text);}
+    .partner-chip.active{color:#fff;}
+
+    /* Top bar */
+    .top-bar{display:flex;gap:.75rem;margin-bottom:1.5rem;align-items:center;}
+    .search-wrap{flex:1;position:relative;}
+    .search-wrap .ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text-muted);pointer-events:none;}
+    #search{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:.8rem;padding:.65rem .9rem .65rem 34px;outline:none;transition:border-color .2s;}
+    #search:focus{border-color:var(--accent);}
+    #search::placeholder{color:var(--text-muted);}
+
+    .btn{font-family:var(--mono);font-size:.78rem;padding:.65rem 1.2rem;border-radius:4px;border:none;cursor:pointer;transition:all .2s;letter-spacing:.05em;display:inline-flex;align-items:center;gap:.5rem;text-transform:uppercase;}
+    .btn-primary{background:var(--accent);color:#fff;}
+    .btn-primary:hover{background:#6a4de8;}
+    .btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border);}
+    .btn-ghost:hover{border-color:var(--accent);color:var(--text);}
+    .btn-danger-sm{background:transparent;color:var(--danger);border:1px solid var(--danger);font-family:var(--mono);font-size:.72rem;padding:4px 10px;border-radius:4px;cursor:pointer;}
+    .btn-danger-sm:hover{background:var(--danger);color:#fff;}
+
+    /* Form */
+    .form-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1.5rem;animation:fadeIn .2s ease;}
+    .section-title{font-size:.95rem;font-weight:600;margin-bottom:1.1rem;display:flex;align-items:center;gap:.75rem;font-family:var(--sans);}
+    .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+    .form-group{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.9rem;}
+    label{font-family:var(--mono);font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em;}
+    input[type="text"],input[type="color"],textarea,select{background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:.85rem;padding:.65rem .9rem;outline:none;transition:border-color .2s;width:100%;}
+    input[type="text"]:focus,textarea:focus,select:focus{border-color:var(--accent);}
+    input[type="text"]::placeholder,textarea::placeholder{color:var(--text-muted);}
+    textarea{resize:vertical;min-height:90px;line-height:1.6;}
+    select option{background:var(--surface);}
+    .form-actions{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1rem;}
+
+    /* Dual toggle */
+    .dual-toggle{display:flex;align-items:center;gap:.6rem;margin-bottom:.9rem;}
+    .dual-toggle label{font-family:var(--mono);font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em;cursor:pointer;display:flex;align-items:center;gap:6px;}
+    .toggle-switch{position:relative;width:36px;height:20px;}
+    .toggle-switch input{opacity:0;width:0;height:0;}
+    .toggle-slider{position:absolute;inset:0;background:var(--border);border-radius:20px;cursor:pointer;transition:background .2s;}
+    .toggle-slider::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:var(--text-muted);border-radius:50%;transition:transform .2s,background .2s;}
+    .toggle-switch input:checked + .toggle-slider{background:rgba(124,92,252,.3);}
+    .toggle-switch input:checked + .toggle-slider::before{transform:translateX(16px);background:var(--accent);}
+    #dual-fields{display:none;}
+    #dual-fields.visible{display:block;}
+
+    /* Scripts list */
+    .scripts-grid{display:flex;flex-direction:column;gap:.6rem;}
+    .script-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem 1.2rem 1rem 2.8rem;cursor:pointer;transition:border-color .2s,background .2s,opacity .2s;position:relative;user-select:none;}
+    .script-card:hover{background:var(--surface2);}
+    .script-card.favorited{border-color:rgba(245,200,66,.35);}
+    .script-card.dragging{opacity:.35;}
+    .script-card.drag-over{border-style:dashed;background:var(--surface2);}
+    .drag-handle{position:absolute;left:0;top:0;bottom:0;width:2.4rem;display:flex;align-items:center;justify-content:center;cursor:grab;color:var(--border);border-right:1px solid var(--border);border-radius:8px 0 0 8px;transition:color .15s,background .15s;}
+    .drag-handle:active{cursor:grabbing;}
+    .script-card:hover .drag-handle{color:var(--text-muted);background:rgba(124,92,252,.06);}
+    .card-header{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+    .card-title-row{display:flex;align-items:center;gap:6px;flex:1;min-width:0;flex-wrap:wrap;}
+    .card-title{font-size:.95rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .star-btn{background:none;border:none;cursor:pointer;color:var(--border);padding:2px;display:flex;align-items:center;flex-shrink:0;transition:color .15s,transform .15s;}
+    .star-btn:hover{color:var(--star);transform:scale(1.2);}
+    .star-btn.active{color:var(--star);}
+    .star-btn svg{width:15px;height:15px;}
+    .star-btn.active svg{fill:var(--star);}
+    .badge{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;border-radius:3px;padding:2px 6px;flex-shrink:0;font-weight:700;}
+    .badge-dual{background:rgba(124,92,252,.15);color:var(--accent);border:1px solid rgba(124,92,252,.3);}
+    .badge-category{background:rgba(252,92,125,.12);color:#fc8faa;border:1px solid rgba(252,92,125,.25);}
+    .card-actions{display:flex;gap:4px;opacity:0;transition:opacity .15s;flex-shrink:0;}
+    .script-card:hover .card-actions{opacity:1;}
+    .card-actions button{background:none;border:1px solid transparent;cursor:pointer;color:var(--text-muted);padding:3px 6px;border-radius:4px;display:flex;align-items:center;transition:all .15s;}
+    .card-actions button:hover{color:var(--text);border-color:var(--border);background:var(--bg);}
+    .card-actions button.del:hover{color:var(--danger);border-color:var(--danger);}
+    .card-preview{font-family:var(--mono);font-size:.75rem;color:var(--text-muted);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:92%;}
+    .copy-hint{font-family:var(--mono);font-size:.65rem;color:var(--accent);margin-top:4px;opacity:0;transition:opacity .15s;text-transform:uppercase;letter-spacing:.08em;}
+    .script-card:hover .copy-hint{opacity:1;}
+
+    /* Version picker */
+    .version-picker{position:fixed;z-index:500;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.5);min-width:240px;overflow:hidden;animation:fadeIn .15s ease;}
+    .version-picker-header{padding:.75rem 1rem .5rem;font-size:.7rem;font-family:var(--mono);color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid var(--border);}
+    .version-option{display:flex;flex-direction:column;gap:2px;padding:.75rem 1rem;cursor:pointer;transition:background .15s;border:none;background:none;width:100%;text-align:left;}
+    .version-option:hover{background:var(--surface2);}
+    .version-option+.version-option{border-top:1px solid var(--border);}
+    .version-label{font-family:var(--mono);font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;}
+    .version-option.partner .version-label{color:var(--success);}
+    .version-option.internal .version-label{color:var(--accent);}
+    .version-preview{font-family:var(--mono);font-size:.7rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;}
+
+    /* Modal */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:flex;align-items:center;justify-content:center;animation:fadeIn .15s ease;}
+    .modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;width:90%;max-width:440px;box-shadow:0 16px 40px rgba(0,0,0,.5);}
+    .modal-title{font-size:1rem;font-weight:700;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between;}
+    .modal-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;padding:2px;}
+    .modal-close:hover{color:var(--text);}
+    .partner-list{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem;max-height:280px;overflow-y:auto;}
+    .partner-row{display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.6rem .9rem;gap:.75rem;}
+    .partner-row-left{display:flex;align-items:center;gap:.75rem;flex:1;min-width:0;}
+    .partner-color-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;cursor:pointer;border:2px solid rgba(255,255,255,.15);transition:transform .15s;}
+    .partner-color-dot:hover{transform:scale(1.2);}
+    .partner-name-text{font-family:var(--mono);font-size:.82rem;}
+    .color-input-wrap{display:flex;align-items:center;gap:6px;}
+    .color-hex-input{width:80px;font-family:var(--mono);font-size:.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 7px;outline:none;}
+    .color-hex-input:focus{border-color:var(--accent);}
+    .add-partner-row{display:flex;gap:.5rem;}
+    .add-partner-row input{flex:1;}
+
+    .empty{text-align:center;padding:3rem;color:var(--text-muted);font-family:var(--mono);font-size:.8rem;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    /* Login screen */
+    #login-screen{position:fixed;inset:0;z-index:1000;background:var(--bg);display:flex;align-items:center;justify-content:center;animation:fadeIn .3s ease;}
+    #login-screen::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:40px 40px;opacity:.3;pointer-events:none;}
+    .login-box{position:relative;z-index:1;width:90%;max-width:360px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:2rem 1.75rem;box-shadow:0 16px 40px rgba(0,0,0,.5);}
+    .login-box h2{font-size:1.3rem;font-weight:800;letter-spacing:-.02em;margin-bottom:.3rem;}
+    .login-box h2 span{color:var(--accent);}
+    .login-sub{font-family:var(--mono);font-size:.72rem;color:var(--text-muted);margin-bottom:1.5rem;}
+    .login-group{display:flex;flex-direction:column;gap:.4rem;margin-bottom:1rem;}
+    .login-group label{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);}
+    .login-inp{background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:.85rem;padding:.65rem .9rem;outline:none;transition:border-color .2s;width:100%;}
+    .login-inp:focus{border-color:var(--accent);}
+    .login-inp::placeholder{color:var(--text-muted);}
+    .login-error{font-family:var(--mono);font-size:.72rem;color:var(--danger);margin-top:.5rem;display:none;}
+    .login-error.show{display:block;}
+    .btn-login{width:100%;margin-top:.5rem;padding:.75rem;font-size:.82rem;}
+
+    /* Role badge */
+    .role-badge{font-family:var(--mono);font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;padding:2px 7px;border-radius:10px;font-weight:700;}
+    .role-master{background:rgba(124,92,252,.2);color:var(--accent);border:1px solid rgba(124,92,252,.4);}
+    .role-manager{background:rgba(61,214,140,.15);color:var(--success);border:1px solid rgba(61,214,140,.3);}
+    .role-user{background:rgba(107,107,138,.15);color:var(--text-muted);border:1px solid var(--border);}
+
+    /* User info in header */
+    .user-info{display:flex;align-items:center;gap:.6rem;margin-right:.5rem;}
+    .user-name{font-family:var(--mono);font-size:.72rem;color:var(--text-muted);}
+
+    /* User management modal */
+    .user-row{display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.6rem .9rem;gap:.5rem;}
+    .user-row-left{display:flex;align-items:center;gap:.6rem;flex:1;min-width:0;}
+    .user-row-name{font-family:var(--mono);font-size:.8rem;}
+    .user-row-actions{display:flex;gap:.4rem;}
+    .partner-checkbox-list{display:flex;flex-direction:column;gap:.4rem;max-height:160px;overflow-y:auto;margin-top:.4rem;}
+    .partner-checkbox-item{display:flex;align-items:center;gap:.5rem;font-family:var(--mono);font-size:.78rem;color:var(--text-muted);cursor:pointer;}
+    .partner-checkbox-item input{accent-color:var(--accent);}
+    .tab-bar{display:flex;gap:0;margin-bottom:1.25rem;border-bottom:1px solid var(--border);}
+    .tab-btn{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;padding:.5rem 1rem;background:none;border:none;border-bottom:2px solid transparent;color:var(--text-muted);cursor:pointer;transition:all .2s;margin-bottom:-1px;}
+    .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+    .tab-content{display:none;}
+    .tab-content.active{display:block;}
+
+    /* Welcome screen */
+    #welcome-screen {
+      position: fixed; inset: 0; z-index: 900;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      animation: fadeIn .3s ease;
+    }
+    #welcome-screen::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);
+      background-size: 40px 40px;
+      opacity: .3; pointer-events: none;
+    }
+    .welcome-inner {
+      position: relative; z-index: 1;
+      text-align: center;
+      width: 90%; max-width: 520px;
+    }
+    .welcome-inner h2 {
+      font-size: clamp(1.8rem, 5vw, 2.6rem);
+      font-weight: 800; letter-spacing: -.03em; margin-bottom: .5rem;
+    }
+    .welcome-inner h2 span { color: var(--accent); }
+    .welcome-subtitle {
+      font-family: var(--mono); font-size: .85rem; color: var(--text-muted);
+      margin-bottom: 2.5rem;
+    }
+    .partner-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: .75rem; margin-bottom: 1.5rem;
+    }
+    .partner-select-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1.1rem .9rem;
+      cursor: pointer; transition: all .2s;
+      display: flex; flex-direction: column; align-items: center; gap: .6rem;
+    }
+    .partner-select-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.3); }
+    .partner-dot {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mono); font-size: .9rem; font-weight: 700; color: #fff;
+    }
+    .partner-select-name {
+      font-family: var(--mono); font-size: .78rem; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--text);
+    }
+    .partner-select-count {
+      font-family: var(--mono); font-size: .65rem; color: var(--text-muted);
+    }
+    .btn-all-partners {
+      font-family: var(--mono); font-size: .75rem; text-transform: uppercase;
+      letter-spacing: .06em; padding: .65rem 1.5rem; border-radius: 4px;
+      border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+      cursor: pointer; transition: all .2s;
+    }
+    .btn-all-partners:hover { border-color: var(--accent); color: var(--text); }
+
+    /* Active partner header bar */
+    .active-partner-bar {
+      display: flex; align-items: center; gap: .75rem;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: .6rem 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .active-partner-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .active-partner-name { font-family: var(--mono); font-size: .8rem; color: var(--text); flex: 1; }
+    .btn-change-partner {
+      font-family: var(--mono); font-size: .68rem; text-transform: uppercase;
+      letter-spacing: .06em; padding: 4px 10px; border-radius: 4px;
+      border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+      cursor: pointer; transition: all .2s; white-space: nowrap;
+    }
+    .btn-change-partner:hover { border-color: var(--accent); color: var(--accent); }
+
+    .welcome-add-partner { margin-top: 1.25rem; }
+    .welcome-add-row { display: flex; gap: .5rem; justify-content: center; }
+    .welcome-inp {
+      width: 220px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 4px; color: var(--text); font-family: var(--mono); font-size: .8rem;
+      padding: .6rem .9rem; outline: none; transition: border-color .2s;
+    }
+    .welcome-inp:focus { border-color: var(--accent); }
+    .welcome-inp::placeholder { color: var(--text-muted); }
+    .welcome-add-btn {
+      font-family: var(--mono); font-size: .75rem; text-transform: uppercase;
+      letter-spacing: .05em; padding: .6rem 1rem; border-radius: 4px;
+      border: 1px solid var(--accent); background: transparent; color: var(--accent);
+      cursor: pointer; transition: all .2s; white-space: nowrap;
+    }
+    .welcome-add-btn:hover { background: var(--accent); color: #fff; }
+
+  </style>
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    // ── COLE SUAS CREDENCIAIS AQUI ──
+    const firebaseConfig = {
+      apiKey: "AIzaSyC0RJnuGRPLHri5CeM3ts0dwJCyv6DSf5w",
+      authDomain: "scripts-atendimento.firebaseapp.com",
+      databaseURL: "https://scripts-atendimento-default-rtdb.firebaseio.com",
+      projectId: "scripts-atendimento",
+      storageBucket: "scripts-atendimento.firebasestorage.app",
+      messagingSenderId: "521145673989",
+      appId: "1:521145673989:web:444bcf5511b62da9eb2f6c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getDatabase(app);
+
+    // Expose to global scope so the rest of the app can use it
+    window._fbDb  = db;
+    window._fbRef = ref;
+    window._fbSet = set;
+    window._fbGet = get;
+    window._fbOnValue = onValue;
+    window._fbReady = true;
+
+    // Signal that Firebase is ready
+    window.dispatchEvent(new Event('firebase-ready'));
+  </script>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <h2>Scripts de <span>atendimento</span></h2>
+    <p class="login-sub">// faça login para continuar</p>
+    <div class="login-group">
+      <label>Usuário</label>
+      <input class="login-inp" type="text" id="login-user" placeholder="seu usuário" autocomplete="off" onkeydown="if(event.key==='Enter') document.getElementById('login-pass').focus()" />
+    </div>
+    <div class="login-group">
+      <label>Senha</label>
+      <input class="login-inp" type="password" id="login-pass" placeholder="sua senha" onkeydown="if(event.key==='Enter') doLogin()" />
+    </div>
+    <div class="login-error" id="login-error">Usuário ou senha incorretos.</div>
+    <button class="btn btn-primary btn-login" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+
+<div id="welcome-screen">
+  <div class="welcome-inner">
+    <h2>Scripts de <span>atendimento</span></h2>
+    <p class="welcome-subtitle">// selecione o parceiro para começar</p>
+    <div class="partner-grid" id="welcome-partner-grid"></div>
+    <button class="btn-all-partners" onclick="selectPartnerFromWelcome('all')">
+      Ver todos os scripts
+    </button>
+    <div class="welcome-add-partner" id="welcome-add-area">
+      <div class="welcome-add-row">
+        <input type="text" id="welcome-partner-inp" class="welcome-inp" placeholder="Novo parceiro (ex: Livelo)" onkeydown="if(event.key==='Enter') addPartnerFromWelcome()" />
+        <button class="welcome-add-btn" onclick="addPartnerFromWelcome()">+ Adicionar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <header>
+    <div>
+      <h1>Scripts de <span>atendimento</span></h1>
+      <p class="subtitle">// clique para copiar · arraste para reordenar</p>
+    </div>
+    <div class="menu-wrap">
+      <div class="user-info" id="header-user-info" style="display:none">
+        <span class="user-name" id="header-username"></span>
+        <span class="role-badge" id="header-role-badge"></span>
+      </div>
+      <button class="hamburger-btn" onclick="toggleMenu(event)">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="dropdown-menu" id="dropdown-menu">
+        <button class="dropdown-item" id="menu-users-btn" onclick="openUsersModal()" style="display:none">
+          <span class="ico"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+          Gerenciar usuários
+        </button>
+        <button class="dropdown-item partners-btn" id="menu-partners-btn" onclick="openPartnersModal()" style="display:none">
+          <span class="ico"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+          Gerenciar parceiros
+        </button>
+        <div class="dropdown-divider"></div>
+        <button class="dropdown-item export" onclick="exportScripts()">
+          <span class="ico"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+          Exportar backup
+        </button>
+        <button class="dropdown-item import" onclick="document.getElementById('import-input').click()">
+          <span class="ico"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>
+          Importar backup
+        </button>
+        <div class="dropdown-divider"></div>
+        <button class="dropdown-item reset-btn" id="menu-reset-btn" onclick="resetAllScripts()" style="display:none">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></span>
+          Apagar tudo
+        </button>
+        <div class="dropdown-divider"></div>
+        <button class="dropdown-item" onclick="doLogout()" style="color:var(--danger)">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
+          Sair
+        </button>
+      </div>
+      <input type="file" id="import-input" accept=".json" onchange="importScripts(event)" />
+    </div>
+  </header>
+
+  <!-- Active partner indicator -->
+  <div class="active-partner-bar" id="active-partner-bar" style="display:none;">
+    <div class="active-partner-dot" id="active-partner-dot"></div>
+    <span class="active-partner-name" id="active-partner-name"></span>
+    <button class="btn-change-partner" onclick="showWelcomeScreen()">↩ Trocar parceiro</button>
+  </div>
+
+  <!-- Filter toggles row -->
+  <div class="filter-toggles">
+    <button class="filter-toggle-btn" id="btn-toggle-partners" onclick="toggleFilterPanel('partners')">
+      <span class="ico"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
+      Parceiros <span class="count" id="count-partners">0</span>
+    </button>
+    <button class="filter-toggle-btn" id="btn-toggle-categories" onclick="toggleFilterPanel('categories')">
+      <span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
+      Categorias <span class="count" id="count-categories">0</span>
+    </button>
+    <div class="sort-wrap">
+      <button class="sort-btn" id="sort-btn" onclick="toggleSortMenu(event)">
+        <span class="ico"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="9" y2="18"/></svg></span>
+        Ordenar
+      </button>
+      <div class="sort-dropdown" id="sort-dropdown">
+        <button class="sort-option active" id="sort-default" onclick="setSort('default')">
+          <span class="ico"><svg viewBox="0 0 24 24"><polyline points="9 18 3 12 9 6"/></svg></span> Padrão (manual)
+        </button>
+        <button class="sort-option" id="sort-alpha" onclick="setSort('alpha')">
+          <span class="ico"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="9" y2="18"/></svg></span> A → Z (título)
+        </button>
+        <button class="sort-option" id="sort-category" onclick="setSort('category')">
+          <span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span> Por categoria
+        </button>
+        <button class="sort-option" id="sort-partner" onclick="setSort('partner')">
+          <span class="ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/></svg></span> Por parceiro
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Partner filter panel -->
+  <div class="filter-panel" id="panel-partners">
+    <div class="chip-bar" id="partner-bar"></div>
+  </div>
+
+  <!-- Category filter panel -->
+  <div class="filter-panel" id="panel-categories">
+    <div class="chip-bar" id="category-bar"></div>
+  </div>
+
+  <!-- Search + New -->
+  <div class="top-bar">
+    <div class="search-wrap">
+      <span class="ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+      <input type="text" id="search" placeholder="Pesquisar por título ou categoria..." oninput="render()" />
+    </div>
+    <button class="btn btn-primary" onclick="toggleForm()">
+      <span class="ico"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span> Novo script
+    </button>
+  </div>
+
+  <!-- Form -->
+  <div id="form-area" style="display:none;">
+    <div class="form-card">
+      <div class="section-title" id="form-title">Novo script</div>
+      <div class="form-group">
+        <label>Título do script</label>
+        <input type="text" id="inp-title" placeholder="Ex: Priorizar entrega" />
+      </div>
+      <div class="form-group">
+        <label>Parceiro</label>
+        <select id="inp-partner">
+          <option value="shared">Compartilhado (todos os parceiros)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Categoria</label>
+        <input type="text" id="inp-category" placeholder="Ex: Entrega, Cancelamento..." list="category-suggestions" autocomplete="off" />
+        <datalist id="category-suggestions"></datalist>
+      </div>
+      <div class="form-group">
+        <label>Script (versão parceiro)</label>
+        <textarea id="inp-body" placeholder="Texto enviado ao parceiro..."></textarea>
+      </div>
+      <div class="dual-toggle">
+        <label>
+          <span class="toggle-switch">
+            <input type="checkbox" id="dual-check" onchange="toggleDualFields()" />
+            <span class="toggle-slider"></span>
+          </span>
+          Adicionar versão interna
+        </label>
+      </div>
+      <div id="dual-fields">
+        <div class="form-group">
+          <label>Script (versão interna)</label>
+          <textarea id="inp-internal" placeholder="Texto registrado internamente..."></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="saveScript()">
+          <span class="ico"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span> Salvar
+        </button>
+        <button class="btn btn-ghost" onclick="cancelForm()">
+          <span class="ico"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span> Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="scripts-list" class="scripts-grid"></div>
+  <div id="empty-msg" class="empty" style="display:none;">// nenhum script encontrado</div>
+</div>
+
+<div id="toast"></div>
+<div id="version-picker" class="version-picker" style="display:none;"></div>
+
+<script>
+  let scripts      = JSON.parse(localStorage.getItem('scripts_atendimento') || '[]');
+  let partners     = JSON.parse(localStorage.getItem('scripts_partners')    || '[]');
+  let partnerColors= JSON.parse(localStorage.getItem('scripts_pcolors')     || '{}');
+  let activePartner  = 'all';
+  let activeCategory = 'all';
+  let currentSort    = 'default';
+  let editingId      = null;
+  let dragSrcId      = null;
+
+  // Default neutral distinct colors for new partners
+  const DEFAULT_COLORS = ['#7b8fa1','#8a9e8a','#9e8a7b','#7b8a9e','#9e9a7b','#8a7b9e','#7b9e8a','#9e7b8a'];
+  let colorIdx = 0;
+  function nextDefaultColor() { return DEFAULT_COLORS[colorIdx++ % DEFAULT_COLORS.length]; }
+
+  const GRIP_SVG  = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none"><circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="18" r="1.2"/><circle cx="15" cy="18" r="1.2"/></svg>`;
+  const EDIT_SVG  = `<svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const TRASH_SVG = `<svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+  const STAR_SVG  = `<svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+
+  function persist() {
+    // Always keep localStorage as backup
+    localStorage.setItem('scripts_atendimento', JSON.stringify(scripts));
+    localStorage.setItem('scripts_partners',    JSON.stringify(partners));
+    localStorage.setItem('scripts_pcolors',     JSON.stringify(partnerColors));
+    // Save to Firebase if available
+    if (window._fbReady) {
+      const db = window._fbDb;
+      window._fbSet(window._fbRef(db, 'data'), {
+        scripts,
+        partners,
+        partnerColors,
+        users: JSON.parse(localStorage.getItem('scripts_users') || '[]')
+      }).catch(err => console.warn('Firebase write error:', err));
+    }
+  }
+
+  function persistUsers() {
+    localStorage.setItem('scripts_users', JSON.stringify(users));
+    if (window._fbReady) {
+      window._fbSet(window._fbRef(window._fbDb, 'data/users'), users)
+        .catch(err => console.warn('Firebase users write error:', err));
+    }
+  }
+
+  function showToast(msg, type='info') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = 'show ' + type;
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.className = '', 2500);
+  }
+
+  /* ── Menu ── */
+  function toggleMenu(e) { e.stopPropagation(); document.getElementById('dropdown-menu').classList.toggle('open'); }
+  document.addEventListener('click', () => {
+    document.getElementById('dropdown-menu').classList.remove('open');
+    document.getElementById('sort-dropdown').classList.remove('open');
+  });
+
+  /* ── Filter panels ── */
+  function toggleFilterPanel(which) {
+    const panel = document.getElementById('panel-' + which);
+    const btn   = document.getElementById('btn-toggle-' + which);
+    const isOpen = panel.classList.contains('open');
+    panel.classList.toggle('open', !isOpen);
+    btn.classList.toggle('active', !isOpen);
+  }
+
+  /* ── Sort ── */
+  function toggleSortMenu(e) { e.stopPropagation(); document.getElementById('sort-dropdown').classList.toggle('open'); }
+
+  function setSort(s) {
+    currentSort = s;
+    document.querySelectorAll('.sort-option').forEach(el => el.classList.remove('active'));
+    document.getElementById('sort-' + s).classList.add('active');
+    document.getElementById('sort-btn').classList.toggle('active', s !== 'default');
+    document.getElementById('sort-dropdown').classList.remove('open');
+    render();
+  }
+
+  function applySorting(arr) {
+    const fav = (a, b) => (b.favorited ? 1 : 0) - (a.favorited ? 1 : 0);
+    const copy = [...arr];
+    if (currentSort === 'default')  return copy.sort(fav);
+    if (currentSort === 'alpha')    return copy.sort((a,b) => fav(a,b) || a.title.localeCompare(b.title));
+    if (currentSort === 'category') return copy.sort((a,b) => fav(a,b) || (a.category||'').localeCompare(b.category||'') || a.title.localeCompare(b.title));
+    if (currentSort === 'partner')  return copy.sort((a,b) => fav(a,b) || (a.partner||'').localeCompare(b.partner||'') || a.title.localeCompare(b.title));
+    return copy;
+  }
+
+  /* ── Partner bar ── */
+  function getPartnerColor(name) {
+    return partnerColors[name] || '#7b8fa1';
+  }
+
+  function renderPartnerBar() {
+    const bar = document.getElementById('partner-bar');
+    const count = document.getElementById('count-partners');
+    count.textContent = partners.length;
+    count.style.display = partners.length ? '' : 'none';
+
+    const allStyle = activePartner === 'all' ? 'background:#3a3a4a;border-color:#6b6b8a;color:var(--text)' : '';
+    bar.innerHTML = `<button class="partner-chip all ${activePartner==='all'?'active':''}" style="${allStyle}" onclick="setPartner('all')">Todos</button>`
+      + partners.map(p => {
+          const c = getPartnerColor(p);
+          const isActive = activePartner === p;
+          const style = isActive
+            ? `background:${c};border-color:${c};color:#fff`
+            : `border-color:${c}40;color:${c}`;
+          return `<button class="partner-chip ${isActive?'active':''}" style="${style}" onclick="setPartner('${esc(p)}')">${esc(p)}</button>`;
+        }).join('');
+    refreshPartnerSelect();
+  }
+
+  function setPartner(p) { activePartner = p; renderPartnerBar(); render(); }
+
+  function refreshPartnerSelect() {
+    const sel = document.getElementById('inp-partner');
+    const cur = sel.value;
+    sel.innerHTML = `<option value="shared">Compartilhado (todos)</option>`
+      + partners.map(p => `<option value="${esc(p)}" ${cur===p?'selected':''}>${esc(p)}</option>`).join('');
+    if (cur && cur !== 'shared') sel.value = cur;
+  }
+
+  /* ── Category bar ── */
+  function getCategories() {
+    return [...new Set(scripts.map(s=>s.category).filter(Boolean))].sort();
+  }
+
+  function renderCategoryBar() {
+    const bar  = document.getElementById('category-bar');
+    const count= document.getElementById('count-categories');
+    const cats = getCategories();
+    count.textContent = cats.length;
+    count.style.display = cats.length ? '' : 'none';
+
+    if (!cats.length) { bar.innerHTML = ''; return; }
+    bar.innerHTML = `<button class="partner-chip all ${activeCategory==='all'?'active':''}" style="${activeCategory==='all'?'background:#3a3a4a;border-color:#6b6b8a;color:var(--text)':''}" onclick="setCategory('all')">Todas</button>`
+      + cats.map(c => {
+          const isActive = activeCategory === c;
+          return `<button class="partner-chip ${isActive?'active':''}" style="${isActive?'background:#fc5c7d;border-color:#fc5c7d;color:#fff':'border-color:rgba(252,92,125,.35);color:#fc8faa'}" onclick="setCategory('${esc(c)}')">${esc(c)}</button>`;
+        }).join('');
+    // refresh datalist
+    const dl = document.getElementById('category-suggestions');
+    if (dl) dl.innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
+  }
+
+  function setCategory(c) { activeCategory = c; renderCategoryBar(); render(); }
+
+  /* ── Partners modal ── */
+  function openPartnersModal() {
+    document.getElementById('dropdown-menu').classList.remove('open');
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay'; overlay.id = 'partners-modal';
+    overlay.innerHTML = `
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-title">Gerenciar parceiros
+          <button class="modal-close" onclick="closePartnersModal()">✕</button>
+        </div>
+        <div class="partner-list" id="modal-partner-list"></div>
+        <div class="add-partner-row">
+          <input type="text" id="new-partner-inp" placeholder="Nome do parceiro (ex: Livelo)" onkeydown="if(event.key==='Enter') addPartner()" />
+          <button class="btn btn-primary" onclick="addPartner()">Adicionar</button>
+        </div>
+      </div>`;
+    overlay.addEventListener('click', closePartnersModal);
+    document.body.appendChild(overlay);
+    renderModalPartners();
+    setTimeout(() => document.getElementById('new-partner-inp').focus(), 100);
+  }
+
+  function renderModalPartners() {
+    const list = document.getElementById('modal-partner-list');
+    if (!list) return;
+    if (!partners.length) { list.innerHTML = `<div style="font-family:var(--mono);font-size:.8rem;color:var(--text-muted);padding:.5rem 0">Nenhum parceiro cadastrado.</div>`; return; }
+    list.innerHTML = partners.map(p => {
+      const color = getPartnerColor(p);
+      return `
+      <div class="partner-row">
+        <div class="partner-row-left">
+          <div class="partner-color-dot" style="background:${color}" title="Clique para mudar a cor" onclick="document.getElementById('color-${esc(p)}').click()"></div>
+          <div class="color-input-wrap">
+            <input type="color" id="color-${esc(p)}" value="${color}" style="opacity:0;position:absolute;width:0;height:0;" onchange="updatePartnerColor('${esc(p)}', this.value)" />
+            <input type="text" class="color-hex-input" value="${color}" placeholder="#rrggbb"
+              oninput="debounceColorUpdate('${esc(p)}', this.value)"
+              onfocus="this.select()" />
+          </div>
+          <span class="partner-name-text">${esc(p)}</span>
+        </div>
+        <button class="btn-danger-sm" onclick="removePartner('${esc(p)}')">Remover</button>
+      </div>`;
+    }).join('');
+  }
+
+  let colorDebounce = {};
+  function debounceColorUpdate(name, val) {
+    clearTimeout(colorDebounce[name]);
+    colorDebounce[name] = setTimeout(() => {
+      if (/^#[0-9a-fA-F]{6}$/.test(val)) updatePartnerColor(name, val);
+    }, 400);
+  }
+
+  function updatePartnerColor(name, color) {
+    partnerColors[name] = color;
+    persist();
+    renderModalPartners();
+    renderPartnerBar();
+    render();
+  }
+
+  function addPartner() {
+    const inp = document.getElementById('new-partner-inp');
+    const name = inp.value.trim();
+    if (!name) return;
+    if (partners.includes(name)) { showToast('Parceiro já existe!', 'error'); return; }
+    partners.push(name);
+    if (!partnerColors[name]) partnerColors[name] = nextDefaultColor();
+    persist(); inp.value = '';
+    renderModalPartners(); renderPartnerBar();
+    showToast('Parceiro adicionado!', 'success');
+  }
+
+  function removePartner(name) {
+    if (!confirm(`Remover "${name}"? Os scripts dele ficarão como compartilhados.`)) return;
+    partners = partners.filter(p => p !== name);
+    scripts.forEach(s => { if (s.partner === name) s.partner = 'shared'; });
+    if (activePartner === name) activePartner = 'all';
+    persist(); renderModalPartners(); renderPartnerBar(); render();
+    showToast('Parceiro removido.', 'info');
+  }
+
+  function closePartnersModal() { document.getElementById('partners-modal')?.remove(); }
+
+  /* ── Form ── */
+  function toggleDualFields() { document.getElementById('dual-fields').classList.toggle('visible', document.getElementById('dual-check').checked); }
+
+  function toggleForm() {
+    const f = document.getElementById('form-area');
+    const isOpen = f.style.display !== 'none';
+    f.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) {
+      ['inp-title','inp-body','inp-internal','inp-category'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('dual-check').checked = false;
+      document.getElementById('dual-fields').classList.remove('visible');
+      refreshPartnerSelect();
+      if (activePartner !== 'all') document.getElementById('inp-partner').value = activePartner;
+      editingId = null;
+      document.getElementById('form-title').textContent = 'Novo script';
+      document.getElementById('inp-title').focus();
+    }
+  }
+
+  function cancelForm() {
+    document.getElementById('form-area').style.display = 'none';
+    ['inp-title','inp-body','inp-internal','inp-category'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('dual-check').checked = false;
+    document.getElementById('dual-fields').classList.remove('visible');
+    editingId = null;
+  }
+
+  function saveScript() {
+    const title    = document.getElementById('inp-title').value.trim();
+    const body     = document.getElementById('inp-body').value.trim();
+    const partner  = document.getElementById('inp-partner').value;
+    const category = document.getElementById('inp-category').value.trim();
+    const dual     = document.getElementById('dual-check').checked;
+    const internal = document.getElementById('inp-internal').value.trim();
+    if (!title || !body) { showToast('Preencha título e conteúdo!', 'error'); return; }
+    if (dual && !internal) { showToast('Preencha a versão interna!', 'error'); return; }
+    const entry = { id: editingId || Date.now(), title, body, partner, category, dual, internal: dual?internal:'', favorited: false };
+    if (editingId !== null) {
+      const idx = scripts.findIndex(s => s.id === editingId);
+      if (idx > -1) { entry.favorited = scripts[idx].favorited; scripts[idx] = entry; }
+      showToast('Script atualizado!', 'success');
+    } else {
+      // Insert after last favorited script so favorites always stay on top
+      const lastFavIdx = scripts.reduce((acc, s, i) => s.favorited ? i : acc, -1);
+      scripts.splice(lastFavIdx + 1, 0, entry);
+      showToast('Script salvo!', 'success');
+    }
+    persist(); cancelForm(); renderCategoryBar(); render();
+  }
+
+  /* ── Favorite ── */
+  function toggleFavorite(id) {
+    const s = scripts.find(x => x.id === id);
+    if (!s) return;
+    s.favorited = !s.favorited;
+    persist(); render();
+  }
+
+  /* ── Delete / Edit ── */
+  function deleteScript(id) {
+    if (!confirm('Excluir este script?')) return;
+    scripts = scripts.filter(s => s.id !== id);
+    persist(); renderCategoryBar(); render();
+    showToast('Script excluído.', 'error');
+  }
+
+  function editScript(id) {
+    const s = scripts.find(x => x.id === id);
+    if (!s) return;
+    editingId = id;
+    document.getElementById('form-area').style.display = 'block';
+    document.getElementById('inp-title').value    = s.title;
+    document.getElementById('inp-body').value     = s.body;
+    document.getElementById('inp-internal').value = s.internal || '';
+    document.getElementById('inp-category').value = s.category || '';
+    refreshPartnerSelect();
+    document.getElementById('inp-partner').value  = s.partner || 'shared';
+    const hasDual = !!(s.dual && s.internal);
+    document.getElementById('dual-check').checked = hasDual;
+    document.getElementById('dual-fields').classList.toggle('visible', hasDual);
+    document.getElementById('form-title').textContent = 'Editar script';
+    document.getElementById('inp-title').focus();
+    document.getElementById('form-area').scrollIntoView({ behavior:'smooth' });
+  }
+
+  /* ── Copy ── */
+  function copyScript(id, e) {
+    const s = scripts.find(x => x.id === id);
+    if (!s) return;
+    if (s.dual && s.internal) { showVersionPicker(s, e); return; }
+    navigator.clipboard.writeText(s.body).then(() => showToast('Copiado!', 'success'));
+  }
+
+  function showVersionPicker(s, e) {
+    const picker = document.getElementById('version-picker');
+    picker.innerHTML = `
+      <div class="version-picker-header">Escolha a versão</div>
+      <button class="version-option partner" onclick="copyVersion(${s.id},'partner')">
+        <span class="version-label">✦ Parceiro</span>
+        <span class="version-preview">${esc(s.body)}</span>
+      </button>
+      <button class="version-option internal" onclick="copyVersion(${s.id},'internal')">
+        <span class="version-label">◈ Interno</span>
+        <span class="version-preview">${esc(s.internal)}</span>
+      </button>`;
+    const pw=260,ph=150,vw=window.innerWidth,vh=window.innerHeight;
+    picker.style.left = (e.clientX+pw>vw ? vw-pw-12 : e.clientX)+'px';
+    picker.style.top  = (e.clientY+ph>vh ? e.clientY-ph : e.clientY+8)+'px';
+    picker.style.display = 'block';
+    setTimeout(() => document.addEventListener('click', closePicker, {once:true}), 0);
+  }
+
+  function closePicker() { document.getElementById('version-picker').style.display='none'; }
+
+  function copyVersion(id, version) {
+    const s = scripts.find(x => x.id === id);
+    if (!s) return;
+    navigator.clipboard.writeText(version==='internal' ? s.internal : s.body)
+      .then(() => showToast(version==='internal' ? 'Versão interna copiada!' : 'Versão parceiro copiada!', 'success'));
+    closePicker();
+  }
+
+  /* ── Export / Import ── */
+  function exportScripts() {
+    document.getElementById('dropdown-menu').classList.remove('open');
+    if (!scripts.length) { showToast('Nenhum script para exportar.', 'error'); return; }
+    const blob = new Blob([JSON.stringify({scripts, partners, partnerColors}, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'scripts_atendimento_' + new Date().toISOString().slice(0,10) + '.json';
+    a.click(); URL.revokeObjectURL(a.href);
+    showToast('Backup exportado!', 'success');
+  }
+
+  function importScripts(event) {
+    document.getElementById('dropdown-menu').classList.remove('open');
+    const file = event.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = JSON.parse(e.target.result);
+        const imported = Array.isArray(data) ? data : (data.scripts || []);
+        const importedPartners = Array.isArray(data) ? [] : (data.partners || []);
+        const importedColors   = Array.isArray(data) ? {} : (data.partnerColors || {});
+        const valid = imported.filter(s => s.id && s.title && s.body);
+        if (!valid.length) { showToast('Nenhum script válido encontrado.', 'error'); return; }
+        const existing = new Set(scripts.map(s => s.id));
+        const news = valid.filter(s => !existing.has(s.id));
+        scripts = [...news, ...scripts];
+        importedPartners.forEach(p => { if (!partners.includes(p)) partners.push(p); });
+        Object.assign(partnerColors, importedColors);
+        persist(); renderPartnerBar(); renderCategoryBar(); render();
+        showToast(news.length + ' script(s) importado(s)!', 'success');
+      } catch { showToast('Arquivo inválido.', 'error'); }
+      event.target.value = '';
+    };
+    reader.readAsText(file);
+  }
+
+  /* ── Drag & Drop ── */
+  function initDrag() {
+    document.querySelectorAll('.script-card').forEach(card => {
+      const handle = card.querySelector('.drag-handle');
+      handle.addEventListener('mousedown', () => { card.draggable = true; });
+      handle.addEventListener('mouseup',   () => { card.draggable = false; });
+      card.addEventListener('dragstart', e => {
+        dragSrcId = parseInt(card.dataset.id);
+        setTimeout(() => card.classList.add('dragging'), 0);
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging'); card.draggable = false;
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      });
+      card.addEventListener('dragover', e => {
+        e.preventDefault();
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        card.classList.add('drag-over');
+      });
+      card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+      card.addEventListener('drop', e => {
+        e.preventDefault(); card.classList.remove('drag-over');
+        const targetId = parseInt(card.dataset.id);
+        if (dragSrcId === targetId) return;
+        const si = scripts.findIndex(s => s.id === dragSrcId);
+        const ti = scripts.findIndex(s => s.id === targetId);
+        const [moved] = scripts.splice(si, 1);
+        scripts.splice(ti, 0, moved);
+        persist(); render();
+      });
+    });
+  }
+
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  /* ── Render ── */
+  function render() {
+    const list   = document.getElementById('scripts-list');
+    const empty  = document.getElementById('empty-msg');
+    const filter = document.getElementById('search').value.toLowerCase();
+
+    let filtered = scripts.filter(s => {
+      const sp = s.partner || 'shared';
+      const vp2 = visiblePartners();
+      const partnerAllowed = currentUser && currentUser.role !== 'master' && currentUser.partners.length
+        ? (sp === 'shared' || vp2.includes(sp))
+        : true;
+      const matchPartner   = partnerAllowed && (activePartner === 'all' || sp === activePartner || sp === 'shared');
+      const matchCategory  = activeCategory  === 'all' || (s.category||'').toLowerCase() === activeCategory.toLowerCase();
+      const matchSearch    = s.title.toLowerCase().includes(filter) || (s.category||'').toLowerCase().includes(filter);
+      return matchPartner && matchCategory && matchSearch;
+    });
+
+    filtered = applySorting(filtered);
+
+    if (!filtered.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+
+    list.innerHTML = filtered.map(s => {
+      const sp2 = s.partner || 'shared';
+      const pc = sp2 !== 'shared' ? getPartnerColor(sp2) : null;
+      const partnerBadge = sp2 === 'shared'
+        ? `<span class="badge" style="background:rgba(107,107,138,.15);color:var(--text-muted);border:1px solid var(--border)">compartilhado</span>`
+        : `<span class="badge" style="background:${pc}22;color:${pc};border:1px solid ${pc}55">${esc(sp2)}</span>`;
+      const catBadge = s.category
+        ? `<span class="badge badge-category">${esc(s.category)}</span>` : '';
+      const dualBadge = s.dual
+        ? `<span class="badge badge-dual">2 versões</span>` : '';
+      const cardBorder = pc ? `border-color:${pc}30` : '';
+
+      return `
+        <div class="script-card ${s.favorited?'favorited':''}" data-id="${s.id}" style="${cardBorder}"
+             onclick="copyScript(${s.id},event)" title="Clique para copiar">
+          <div class="drag-handle" title="Arrastar" onclick="event.stopPropagation()">${GRIP_SVG}</div>
+          <div class="card-header">
+            <div class="card-title-row">
+              <button class="star-btn ${s.favorited?'active':''}"
+                      onclick="event.stopPropagation();toggleFavorite(${s.id})"
+                      title="${s.favorited?'Remover favorito':'Favoritar'}">${STAR_SVG}</button>
+              <span class="card-title">${esc(s.title)}</span>
+              ${partnerBadge}${catBadge}${dualBadge}
+            </div>
+            <div class="card-actions">
+              ${canEdit() ? `<button onclick="event.stopPropagation();editScript(${s.id})" title="Editar">${EDIT_SVG}</button>` : ''}
+              ${canEdit() ? `<button class="del" onclick="event.stopPropagation();deleteScript(${s.id})" title="Excluir">${TRASH_SVG}</button>` : ''}
+            </div>
+          </div>
+          <div class="card-preview">${esc(s.body)}</div>
+          <div class="copy-hint">${s.dual?'↳ clique para escolher versão':'↳ clique para copiar'}</div>
+        </div>`;
+    }).join('');
+    initDrag();
+  }
+
+
+  /* ── Welcome screen ── */
+  function renderWelcomeScreen() {
+    const grid = document.getElementById('welcome-partner-grid');
+    const vp = visiblePartners();
+    const items = [
+      { id: 'all', name: 'Todos', color: '#6b6b8a' },
+      ...vp.map(p => ({ id: p, name: p, color: getPartnerColor(p) }))
+    ];
+
+    grid.innerHTML = items.map(p => {
+      const count = p.id === 'all'
+        ? scripts.length
+        : scripts.filter(s => s.partner === p.id || s.partner === 'shared').length;
+      const initials = p.name.slice(0,2).toUpperCase();
+      return `
+        <div class="partner-select-card" onclick="selectPartnerFromWelcome('${esc(p.id)}')"
+             style="border-color:${p.color}40">
+          <div class="partner-dot" style="background:${p.color}">${initials}</div>
+          <span class="partner-select-name">${esc(p.name)}</span>
+          <span class="partner-select-count">${count} script${count !== 1 ? 's' : ''}</span>
+        </div>`;
+    }).join('');
+  }
+
+  function selectPartnerFromWelcome(p) {
+    activePartner = p;
+    document.getElementById('welcome-screen').style.display = 'none';
+    const bar  = document.getElementById('active-partner-bar');
+    const dot  = document.getElementById('active-partner-dot');
+    const namEl= document.getElementById('active-partner-name');
+    const partnerFilterBtn = document.getElementById('btn-toggle-partners');
+    const partnerFilterPanel = document.getElementById('panel-partners');
+    if (p === 'all') {
+      dot.style.background = '#6b6b8a';
+      namEl.textContent    = 'Todos os parceiros';
+      namEl.style.color    = 'var(--text-muted)';
+      bar.style.display    = 'flex';
+      partnerFilterBtn.style.display = 'flex';
+    } else {
+      const color = getPartnerColor(p);
+      dot.style.background = color;
+      namEl.textContent    = p;
+      namEl.style.color    = color;
+      bar.style.display    = 'flex';
+      // hide partner filter — not needed when a specific partner is selected
+      partnerFilterBtn.style.display = 'none';
+      partnerFilterPanel.classList.remove('open');
+    }
+    renderPartnerBar();
+    render();
+  }
+
+  function showWelcomeScreen() {
+    renderWelcomeScreen();
+    // reset partner filter visibility for when user returns
+    document.getElementById('btn-toggle-partners').style.display = 'flex';
+    document.getElementById('panel-partners').classList.remove('open');
+    document.getElementById('btn-toggle-partners').classList.remove('active');
+    document.getElementById('active-partner-bar').style.display = 'none';
+    document.getElementById('welcome-screen').style.display = 'flex';
+  }
+
+  function addPartnerFromWelcome() {
+    const inp = document.getElementById('welcome-partner-inp');
+    const name = inp.value.trim();
+    if (!name) return;
+    if (partners.includes(name)) { showToast('Parceiro já existe!', 'error'); return; }
+    partners.push(name);
+    if (!partnerColors[name]) partnerColors[name] = nextDefaultColor();
+    persist();
+    inp.value = '';
+    renderWelcomeScreen();
+    renderPartnerBar();
+    showToast('Parceiro "' + name + '" adicionado!', 'success');
+  }
+
+  /* ── Reset ── */
+  function resetAllScripts() {
+    document.getElementById('dropdown-menu').classList.remove('open');
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay'; modal.id = 'reset-modal';
+    modal.innerHTML = `
+      <div class="modal" onclick="event.stopPropagation()" style="max-width:380px;text-align:center;">
+        <div style="font-size:2rem;margin-bottom:.75rem;">⚠️</div>
+        <div class="modal-title" style="justify-content:center;margin-bottom:.5rem;">Apagar tudo?</div>
+        <p style="font-family:var(--mono);font-size:.78rem;color:var(--text-muted);margin-bottom:1.5rem;line-height:1.6;">
+          Todos os scripts serão removidos permanentemente.<br>
+          Esta ação não pode ser desfeita.<br><br>
+          <strong style="color:var(--text)">Recomendamos exportar um backup antes.</strong>
+        </p>
+        <div style="display:flex;gap:.75rem;justify-content:center;">
+          <button class="btn btn-ghost" onclick="document.getElementById('reset-modal').remove()">Cancelar</button>
+          <button class="btn" style="background:var(--danger);color:#fff;" onclick="confirmReset()">Sim, apagar tudo</button>
+        </div>
+      </div>`;
+    modal.addEventListener('click', () => modal.remove());
+    document.body.appendChild(modal);
+  }
+
+  function confirmReset() {
+    scripts = [];
+    persist();
+    document.getElementById('reset-modal')?.remove();
+    renderCategoryBar();
+    render();
+    showToast('Todos os scripts foram apagados.', 'error');
+  }
+
+
+  /* ══════════════════════════════════════════
+     AUTH SYSTEM
+  ══════════════════════════════════════════ */
+  let users       = JSON.parse(localStorage.getItem('scripts_users') || 'null');
+  let currentUser = null;
+
+  // Seed default master account if none exists
+  if (!users) {
+    users = [{ username: 'master', password: 'master123', role: 'master', partners: [] }];
+    localStorage.setItem('scripts_users', JSON.stringify(users));
+  }
+
+
+  function doLogin() {
+    const u = document.getElementById('login-user').value.trim();
+    const p = document.getElementById('login-pass').value;
+    const found = users.find(x => x.username === u && x.password === p);
+    if (!found) {
+      document.getElementById('login-error').classList.add('show');
+      document.getElementById('login-pass').value = '';
+      return;
+    }
+    currentUser = found;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('login-error').classList.remove('show');
+    applyRoleUI();
+    renderWelcomeScreen();
+    showToast('Bem-vindo, ' + currentUser.username + '!', 'success');
+  }
+
+  function doLogout() {
+    currentUser = null;
+    document.getElementById('dropdown-menu').classList.remove('open');
+    document.getElementById('welcome-screen').style.display = 'none';
+    document.getElementById('login-user').value = '';
+    document.getElementById('login-pass').value = '';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('header-user-info').style.display = 'none';
+  }
+
+  function applyRoleUI() {
+    const role = currentUser.role;
+    const isMaster  = role === 'master';
+    const isManager = role === 'manager';
+
+    // Header user info
+    const info = document.getElementById('header-user-info');
+    info.style.display = 'flex';
+    document.getElementById('header-username').textContent = currentUser.username;
+    const rb = document.getElementById('header-role-badge');
+    rb.textContent = role === 'master' ? 'Master' : role === 'manager' ? 'Gerente' : 'Usuário';
+    rb.className = 'role-badge ' + (role === 'master' ? 'role-master' : role === 'manager' ? 'role-manager' : 'role-user');
+
+    // Menu items visibility
+    document.getElementById('menu-users-btn').style.display    = (isMaster || isManager) ? 'flex' : 'none';
+    document.getElementById('menu-partners-btn').style.display = isMaster ? 'flex' : 'none';
+    document.getElementById('menu-reset-btn').style.display    = isMaster ? 'flex' : 'none';
+
+    // Export/import only for master
+    document.querySelectorAll('.dropdown-item.export, .dropdown-item.import').forEach(el => {
+      el.style.display = isMaster ? 'flex' : 'none';
+    });
+
+    // Hide new script button for non-masters
+    document.querySelector('.btn-primary[onclick="toggleForm()"]').style.display = isMaster ? '' : 'none';
+  }
+
+  function canEdit() { return currentUser && currentUser.role === 'master'; }
+
+  // Filter partners visible to current user
+  function visiblePartners() {
+    if (!currentUser) return partners;
+    if (currentUser.role === 'master') return partners;
+    // manager/user: show only assigned partners (+ shared scripts always visible)
+    return currentUser.partners.length ? currentUser.partners.filter(p => partners.includes(p)) : partners;
+  }
+
+  /* ── Users modal ── */
+  function openUsersModal() {
+    document.getElementById('dropdown-menu').classList.remove('open');
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay'; overlay.id = 'users-modal';
+    overlay.innerHTML = `
+      <div class="modal" onclick="event.stopPropagation()" style="max-width:480px;">
+        <div class="modal-title">Gerenciar usuários
+          <button class="modal-close" onclick="document.getElementById('users-modal').remove()">✕</button>
+        </div>
+        <div class="tab-bar" id="users-tab-bar">
+          <button class="tab-btn active" onclick="switchTab('tab-list',this)">Usuários</button>
+          <button class="tab-btn" id="tab-new-btn" onclick="switchTab('tab-new',this)">Novo usuário</button>
+        </div>
+        <div class="tab-content active" id="tab-list"></div>
+        <div class="tab-content" id="tab-new">
+          <div class="form-group"><label>Usuário</label><input type="text" id="new-u-user" placeholder="nome de usuário" /></div>
+          <div class="form-group"><label>Senha</label><input type="password" id="new-u-pass" placeholder="senha" /></div>
+          <div class="form-group">
+            <label>Nível de acesso</label>
+            <select id="new-u-role">
+              <option value="user">Usuário</option>
+              <option value="manager">Gerente</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Parceiros com acesso</label>
+            <div class="partner-checkbox-list" id="new-u-partners">
+              ${partners.map(p=>`<label class="partner-checkbox-item"><input type="checkbox" value="${esc(p)}" /> ${esc(p)}</label>`).join('')}
+            </div>
+            <small style="font-family:var(--mono);font-size:.65rem;color:var(--text-muted);margin-top:4px;display:block">Deixe todos desmarcados para liberar todos os parceiros.</small>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="addUser()">
+              <span class="ico"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span> Criar usuário
+            </button>
+          </div>
+        </div>
+      </div>`;
+    overlay.addEventListener('click', () => overlay.remove());
+    document.body.appendChild(overlay);
+    renderUserList();
+  }
+
+  function switchTab(id, btn) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function renderUserList() {
+    const list = document.getElementById('tab-list');
+    if (!list) return;
+    const isMaster  = currentUser.role === 'master';
+    const isManager = currentUser.role === 'manager';
+
+    // Hide "Novo usuário" tab for managers
+    const newTabBtn = document.getElementById('tab-new-btn');
+    if (newTabBtn) newTabBtn.style.display = isMaster ? '' : 'none';
+
+    // Managers only see users (not other managers)
+    const nonMaster = users.filter(u => u.role !== 'master' && (isMaster || u.role === 'user'));
+    if (!nonMaster.length) {
+      list.innerHTML = `<div style="font-family:var(--mono);font-size:.8rem;color:var(--text-muted);padding:.5rem 0">Nenhum usuário cadastrado ainda.</div>`;
+      return;
+    }
+    list.innerHTML = `<div style="display:flex;flex-direction:column;gap:.5rem;max-height:260px;overflow-y:auto;">`
+      + nonMaster.map(u => `
+        <div class="user-row">
+          <div class="user-row-left">
+            <span class="role-badge ${u.role==='manager'?'role-manager':'role-user'}">${u.role==='manager'?'Gerente':'Usuário'}</span>
+            <span class="user-row-name">${esc(u.username)}</span>
+            <span style="font-family:var(--mono);font-size:.65rem;color:var(--text-muted)">${u.partners.length ? u.partners.join(', ') : 'todos parceiros'}</span>
+          </div>
+          <div class="user-row-actions">
+            <button class="btn-danger-sm" style="border-color:var(--accent);color:var(--accent)" onclick="editUserPartners('${esc(u.username)}')">Parceiros</button>
+            ${isMaster ? `<button class="btn-danger-sm" onclick="removeUser('${esc(u.username)}')">Remover</button>` : ''}
+          </div>
+        </div>`).join('')
+      + '</div>';
+  }
+
+  function addUser() {
+    const username = document.getElementById('new-u-user').value.trim();
+    const password = document.getElementById('new-u-pass').value.trim();
+    const role     = document.getElementById('new-u-role').value;
+    const checked  = [...document.querySelectorAll('#new-u-partners input:checked')].map(c => c.value);
+    if (!username || !password) { showToast('Preencha usuário e senha!', 'error'); return; }
+    if (users.find(u => u.username === username)) { showToast('Usuário já existe!', 'error'); return; }
+    users.push({ username, password, role, partners: checked });
+    persistUsers();
+    renderUserList();
+    document.getElementById('new-u-user').value = '';
+    document.getElementById('new-u-pass').value = '';
+    document.querySelectorAll('#new-u-partners input').forEach(c => c.checked = false);
+    showToast('Usuário criado!', 'success');
+    switchTab('tab-list', document.querySelectorAll('.tab-btn')[0]);
+  }
+
+  function removeUser(username) {
+    if (!confirm('Remover usuário "' + username + '"?')) return;
+    users = users.filter(u => u.username !== username);
+    persistUsers();
+    renderUserList();
+    showToast('Usuário removido.', 'info');
+  }
+
+  function editUserPartners(username) {
+    const u = users.find(x => x.username === username);
+    if (!u) return;
+    const isMaster  = currentUser.role === 'master';
+    // Managers can only assign partners they themselves have access to
+    const availablePartners = isMaster
+      ? partners
+      : (currentUser.partners.length ? currentUser.partners : partners);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay'; overlay.id = 'edit-user-modal';
+    overlay.innerHTML = `
+      <div class="modal" onclick="event.stopPropagation()" style="max-width:380px;">
+        <div class="modal-title">Parceiros — ${esc(u.username)}
+          <button class="modal-close" onclick="document.getElementById('edit-user-modal').remove()">✕</button>
+        </div>
+        ${isMaster ? `
+        <div class="form-group">
+          <label>Nova senha (deixe em branco para manter)</label>
+          <input type="password" id="edit-u-pass" placeholder="nova senha" />
+        </div>
+        <div class="form-group">
+          <label>Nível de acesso</label>
+          <select id="edit-u-role">
+            <option value="user" ${u.role==='user'?'selected':''}>Usuário</option>
+            <option value="manager" ${u.role==='manager'?'selected':''}>Gerente</option>
+          </select>
+        </div>` : ''}
+        <div class="form-group">
+          <label>Parceiros com acesso</label>
+          <div class="partner-checkbox-list">
+            ${availablePartners.map(p=>`<label class="partner-checkbox-item"><input type="checkbox" value="${esc(p)}" ${u.partners.includes(p)?'checked':''}/> ${esc(p)}</label>`).join('')}
+          </div>
+          <small style="font-family:var(--mono);font-size:.65rem;color:var(--text-muted);margin-top:4px;display:block">Deixe todos desmarcados para liberar todos os parceiros.</small>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="saveUserEdit('${esc(u.username)}')">Salvar</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('edit-user-modal').remove()">Cancelar</button>
+        </div>
+      </div>`;
+    overlay.addEventListener('click', () => overlay.remove());
+    document.body.appendChild(overlay);
+  }
+
+  function saveUserEdit(username) {
+    const u = users.find(x => x.username === username);
+    if (!u) return;
+    const isMaster = currentUser.role === 'master';
+    if (isMaster) {
+      const newPass = document.getElementById('edit-u-pass').value.trim();
+      if (newPass) u.password = newPass;
+      u.role = document.getElementById('edit-u-role').value;
+    }
+    u.partners = [...document.querySelectorAll('#edit-user-modal input[type="checkbox"]:checked')].map(c => c.value);
+    persistUsers();
+    document.getElementById('edit-user-modal').remove();
+    renderUserList();
+    showToast('Usuário atualizado!', 'success');
+  }
+
+  // ── Init: load from Firebase, fallback to localStorage ──
+  function initApp(data) {
+    if (data) {
+      scripts       = data.scripts       || [];
+      partners      = data.partners      || [];
+      partnerColors = data.partnerColors || {};
+      if (data.users && data.users.length) {
+        users = data.users;
+        localStorage.setItem('scripts_users', JSON.stringify(users));
+      }
+      // Sync to localStorage
+      localStorage.setItem('scripts_atendimento', JSON.stringify(scripts));
+      localStorage.setItem('scripts_partners',    JSON.stringify(partners));
+      localStorage.setItem('scripts_pcolors',     JSON.stringify(partnerColors));
+    }
+    renderPartnerBar();
+    renderCategoryBar();
+    render();
+    // login screen shown by default via HTML
+  }
+
+  function startWithLocalStorage() {
+    console.log('Firebase indisponível, usando localStorage.');
+    initApp(null);
+  }
+
+  // Try Firebase first
+  if (window._fbReady) {
+    window._fbGet(window._fbRef(window._fbDb, 'data')).then(snapshot => {
+      initApp(snapshot.exists() ? snapshot.val() : null);
+      // Listen for real-time updates
+      window._fbOnValue(window._fbRef(window._fbDb, 'data'), snap => {
+        if (!snap.exists()) return;
+        const d = snap.val();
+        scripts       = d.scripts       || scripts;
+        partners      = d.partners      || partners;
+        partnerColors = d.partnerColors || partnerColors;
+        if (d.users) { users = d.users; localStorage.setItem('scripts_users', JSON.stringify(users)); }
+        renderPartnerBar(); renderCategoryBar(); render();
+      });
+    }).catch(() => startWithLocalStorage());
+  } else {
+    window.addEventListener('firebase-ready', () => {
+      window._fbGet(window._fbRef(window._fbDb, 'data')).then(snapshot => {
+        initApp(snapshot.exists() ? snapshot.val() : null);
+        window._fbOnValue(window._fbRef(window._fbDb, 'data'), snap => {
+          if (!snap.exists()) return;
+          const d = snap.val();
+          scripts       = d.scripts       || scripts;
+          partners      = d.partners      || partners;
+          partnerColors = d.partnerColors || partnerColors;
+          if (d.users) { users = d.users; localStorage.setItem('scripts_users', JSON.stringify(users)); }
+          renderPartnerBar(); renderCategoryBar(); render();
+        });
+      }).catch(() => startWithLocalStorage());
+    });
+    // Fallback timeout if Firebase never loads
+    setTimeout(() => { if (!window._fbReady) startWithLocalStorage(); }, 4000);
+  }
+</script>
+</body>
+</html>
