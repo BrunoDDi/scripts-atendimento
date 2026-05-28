@@ -665,7 +665,7 @@
     refreshPartnerSelect();
   }
 
-  function setPartner(p) { activePartner = p; renderPartnerBar(); setTimeout(() => render(), 0); }
+  function setPartner(p) { activePartner = p; renderPartnerBar(); render(); }
 
   function refreshPartnerCheckboxes(selectedPartners) {
     const list = document.getElementById('inp-partners-list');
@@ -993,54 +993,56 @@
 
   function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+  // Helper: normalize partner field to array regardless of Firebase format
+  function getPartnerArr(raw) {
+    if (!raw || raw === 'shared') return [];
+    if (Array.isArray(raw)) return raw.filter(Boolean);
+    if (typeof raw === 'string') return [raw];
+    if (typeof raw === 'object') return Object.values(raw).filter(Boolean);
+    return [];
+  }
+
   /* ── Render ── */
   function render() {
-    const list   = document.getElementById('scripts-list');
-    const empty  = document.getElementById('empty-msg');
-    const filter = document.getElementById('search').value.toLowerCase();
+    const list  = document.getElementById('scripts-list');
+    const empty = document.getElementById('empty-msg');
+    if (!list) return;
 
-    // Normalize all scripts before filtering (handles Firebase object format)
-    const normalized = scripts.map(s => {
-      const raw = s.partner;
-      let spArr = [];
-      if (raw && raw !== 'shared') {
-        if (Array.isArray(raw)) spArr = raw.filter(Boolean);
-        else if (typeof raw === 'string') spArr = [raw];
-        else if (typeof raw === 'object') spArr = Object.values(raw).filter(Boolean);
-      }
-      return { ...s, _partners: spArr };
-    });
+    const filter     = (document.getElementById('search').value || '').toLowerCase();
+    const isMaster   = currentUser && currentUser.role === 'master';
+    const userAllowed= (!isMaster && currentUser && currentUser.partners && currentUser.partners.length)
+                       ? currentUser.partners : null;
 
-    let filtered = normalized.filter(s => {
-      const spArr = s._partners;
+    console.log('render() called - scripts:', scripts.length, 'activePartner:', activePartner);
+    let filtered = scripts.filter(s => {
+      const spArr    = getPartnerArr(s.partner);
       const isShared = spArr.length === 0;
 
-      // Who is the current user and what partners can they see?
-      const isMaster = currentUser && currentUser.role === 'master';
-      const userAllowed = (!isMaster && currentUser && currentUser.partners && currentUser.partners.length)
-        ? currentUser.partners : null;
-
-      // RULE 1: user access restriction
+      // RULE 1 — user can only see their partners (or shared)
       if (!isShared && userAllowed) {
         if (!spArr.some(p => userAllowed.includes(p))) return false;
       }
 
-      // RULE 2: active partner filter
+      // RULE 2 — active partner chip filter
       if (activePartner !== 'all') {
+        // script must be shared OR contain the active partner
         if (!isShared && !spArr.includes(activePartner)) return false;
       } else if (userAllowed) {
+        // "all" for restricted user: must be shared or have an allowed partner
         if (!isShared && !spArr.some(p => userAllowed.includes(p))) return false;
       }
-      
 
-      const matchCategory = activeCategory === 'all' || (s.category||'').toLowerCase() === activeCategory.toLowerCase();
-      const matchSearch   = s.title.toLowerCase().includes(filter) || (s.category||'').toLowerCase().includes(filter);
-      return matchCategory && matchSearch;
+      // RULE 3 — category and search
+      const matchCat    = activeCategory === 'all' || (s.category||'').toLowerCase() === activeCategory.toLowerCase();
+      const matchSearch = s.title.toLowerCase().includes(filter) || (s.category||'').toLowerCase().includes(filter);
+      return matchCat && matchSearch;
     });
 
     filtered = applySorting(filtered);
+    console.log('filtered results:', filtered.length, 'scripts');
 
-    if (!filtered.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+    list.innerHTML = '';
+    if (!filtered.length) { empty.style.display = 'block'; return; }
     empty.style.display = 'none';
 
     list.innerHTML = filtered.map(s => {
@@ -1131,7 +1133,7 @@
       partnerFilterPanel.classList.remove('open');
     }
     renderPartnerBar();
-    setTimeout(() => render(), 0);
+    render();
   }
 
   function showWelcomeScreen() {
@@ -1586,6 +1588,12 @@
     localStorage.setItem('scripts_atendimento', JSON.stringify(scripts));
     localStorage.setItem('scripts_partners',    JSON.stringify(partners));
     localStorage.setItem('scripts_pcolors',     JSON.stringify(partnerColors));
+    // If user is already logged in and on main screen, refresh UI
+    if (currentUser && document.getElementById('welcome-screen') &&
+        document.getElementById('welcome-screen').style.display === 'none' &&
+        document.getElementById('login-screen').style.display === 'none') {
+      renderPartnerBar(); renderCategoryBar(); render();
+    }
   }
 
   function refreshUI() {
