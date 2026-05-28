@@ -665,7 +665,7 @@
     refreshPartnerSelect();
   }
 
-  function setPartner(p) { activePartner = p; renderPartnerBar(); render(); }
+  function setPartner(p) { activePartner = p; renderPartnerBar(); setTimeout(() => render(), 0); }
 
   function refreshPartnerCheckboxes(selectedPartners) {
     const list = document.getElementById('inp-partners-list');
@@ -999,48 +999,43 @@
     const empty  = document.getElementById('empty-msg');
     const filter = document.getElementById('search').value.toLowerCase();
 
-    let filtered = scripts.filter(s => {
-      const sp = s.partner;
-      // Normalize: undefined/null/'shared'/[] = shared with all
-      let spArr;
-      if (!sp || sp === 'shared') {
-        spArr = [];
-      } else if (Array.isArray(sp)) {
-        spArr = sp.filter(Boolean);
-      } else {
-        spArr = [sp];
+    // Normalize all scripts before filtering (handles Firebase object format)
+    const normalized = scripts.map(s => {
+      const raw = s.partner;
+      let spArr = [];
+      if (raw && raw !== 'shared') {
+        if (Array.isArray(raw)) spArr = raw.filter(Boolean);
+        else if (typeof raw === 'string') spArr = [raw];
+        else if (typeof raw === 'object') spArr = Object.values(raw).filter(Boolean);
       }
+      return { ...s, _partners: spArr };
+    });
+
+    let filtered = normalized.filter(s => {
+      const spArr = s._partners;
       const isShared = spArr.length === 0;
-      const vp2 = visiblePartners();
-      const partnerAllowed = currentUser && currentUser.role !== 'master' && currentUser.partners && currentUser.partners.length
-        ? (isShared || spArr.some(p => vp2.includes(p)))
-        : true;
-      // If script has specific partners, only show when activePartner matches one of them
-      // For non-master users, "all" still respects their allowed partners
-      const userPartners = currentUser && currentUser.partners && currentUser.partners.length
+
+      // Who is the current user and what partners can they see?
+      const isMaster = currentUser && currentUser.role === 'master';
+      const userAllowed = (!isMaster && currentUser && currentUser.partners && currentUser.partners.length)
         ? currentUser.partners : null;
 
-      let matchPartner;
-      if (!partnerAllowed) {
-        matchPartner = false;
-      } else if (activePartner === 'all') {
-        if (isShared) {
-          // Shared scripts: visible to all, but if user has restricted access
-          // only show if at least one of their allowed partners exists or they have no restriction
-          matchPartner = true;
-        } else if (userPartners) {
-          // Non-master with restricted partners: only show script if it has
-          // at least one partner the user has access to
-          matchPartner = spArr.some(p => userPartners.includes(p));
-        } else {
-          matchPartner = true;
-        }
-      } else {
-        matchPartner = isShared || spArr.includes(activePartner);
+      // RULE 1: user access restriction
+      if (!isShared && userAllowed) {
+        if (!spArr.some(p => userAllowed.includes(p))) return false;
       }
-      const matchCategory  = activeCategory  === 'all' || (s.category||'').toLowerCase() === activeCategory.toLowerCase();
-      const matchSearch    = s.title.toLowerCase().includes(filter) || (s.category||'').toLowerCase().includes(filter);
-      return matchPartner && matchCategory && matchSearch;
+
+      // RULE 2: active partner filter
+      if (activePartner !== 'all') {
+        if (!isShared && !spArr.includes(activePartner)) return false;
+      } else if (userAllowed) {
+        if (!isShared && !spArr.some(p => userAllowed.includes(p))) return false;
+      }
+      
+
+      const matchCategory = activeCategory === 'all' || (s.category||'').toLowerCase() === activeCategory.toLowerCase();
+      const matchSearch   = s.title.toLowerCase().includes(filter) || (s.category||'').toLowerCase().includes(filter);
+      return matchCategory && matchSearch;
     });
 
     filtered = applySorting(filtered);
@@ -1136,7 +1131,7 @@
       partnerFilterPanel.classList.remove('open');
     }
     renderPartnerBar();
-    render();
+    setTimeout(() => render(), 0);
   }
 
   function showWelcomeScreen() {
@@ -1269,6 +1264,24 @@
     showToast('Senha de "' + username + '" redefinida!', 'success');
   }
 
+
+  /* ── Migrate old partner format (string/object -> array) ── */
+  function migratePartners() {
+    let changed = false;
+    scripts.forEach(s => {
+      const raw = s.partner;
+      if (!raw || raw === 'shared') return;
+      if (typeof raw === 'string') {
+        s.partner = [raw]; changed = true;
+      } else if (typeof raw === 'object' && !Array.isArray(raw)) {
+        // Firebase can turn arrays into {0: "Livelo", 1: "MELI"}
+        s.partner = Object.values(raw).filter(p => p && p !== 'shared');
+        changed = true;
+      }
+    });
+    if (changed) { persist(); }
+  }
+
   /* ── Reset ── */
   function resetAllScripts() {
     document.getElementById('dropdown-menu').classList.remove('open');
@@ -1328,7 +1341,15 @@
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('login-error').classList.remove('show');
     applyRoleUI();
-    renderWelcomeScreen();
+    // Refresh data from Firebase before showing welcome screen
+    if (window._fbReady) {
+      window._fbGet(window._fbRef(window._fbDb, 'data')).then(snap => {
+        if (snap.exists()) loadData(snap.val());
+        renderWelcomeScreen();
+      }).catch(() => renderWelcomeScreen());
+    } else {
+      renderWelcomeScreen();
+    }
     showToast('Bem-vindo, ' + currentUser.username + '!', 'success');
   }
 
@@ -1547,64 +1568,54 @@
     showToast('Usuário atualizado!', 'success');
   }
 
-  // ── Init: load from Firebase, fallback to localStorage ──
-  function initApp(data) {
-    if (data) {
-      scripts       = data.scripts       || [];
-      partners      = data.partners      || [];
-      partnerColors = data.partnerColors || {};
-      if (data.users && data.users.length) {
-        users = data.users;
-        localStorage.setItem('scripts_users', JSON.stringify(users));
-      }
-      // Sync to localStorage
-      localStorage.setItem('scripts_atendimento', JSON.stringify(scripts));
-      localStorage.setItem('scripts_partners',    JSON.stringify(partners));
-      localStorage.setItem('scripts_pcolors',     JSON.stringify(partnerColors));
+  // ── Init ──
+  // Load data from Firebase once and store in memory.
+  // onValue only updates data silently — UI only refreshes when user explicitly
+  // triggers an action (login, filter, save, etc.)
+
+  function loadData(d) {
+    if (!d) return;
+    if (d.scripts)       scripts       = Array.isArray(d.scripts) ? d.scripts : Object.values(d.scripts);
+    if (d.partners)      partners      = Array.isArray(d.partners) ? d.partners : Object.values(d.partners);
+    if (d.partnerColors) partnerColors = d.partnerColors;
+    if (d.users && (Array.isArray(d.users) ? d.users.length : Object.keys(d.users).length)) {
+      users = Array.isArray(d.users) ? d.users : Object.values(d.users);
+      localStorage.setItem('scripts_users', JSON.stringify(users));
     }
+    migratePartners();
+    localStorage.setItem('scripts_atendimento', JSON.stringify(scripts));
+    localStorage.setItem('scripts_partners',    JSON.stringify(partners));
+    localStorage.setItem('scripts_pcolors',     JSON.stringify(partnerColors));
+  }
+
+  function refreshUI() {
+    // Only refresh if user is logged in and on main screen
+    if (!currentUser) return;
+    if (document.getElementById('welcome-screen').style.display !== 'none') return;
     renderPartnerBar();
     renderCategoryBar();
     render();
-    // login screen shown by default via HTML
   }
 
-  function startWithLocalStorage() {
-    console.log('Firebase indisponível, usando localStorage.');
-    initApp(null);
-  }
-
-  // Try Firebase first
-  if (window._fbReady) {
+  function startFirebase() {
     window._fbGet(window._fbRef(window._fbDb, 'data')).then(snapshot => {
-      initApp(snapshot.exists() ? snapshot.val() : null);
-      // Listen for real-time updates
+      if (snapshot.exists()) loadData(snapshot.val());
+      // Silent background sync — only updates data, never resets UI
       window._fbOnValue(window._fbRef(window._fbDb, 'data'), snap => {
         if (!snap.exists()) return;
-        const d = snap.val();
-        scripts       = d.scripts       || scripts;
-        partners      = d.partners      || partners;
-        partnerColors = d.partnerColors || partnerColors;
-        if (d.users) { users = d.users; localStorage.setItem('scripts_users', JSON.stringify(users)); }
-        renderPartnerBar(); renderCategoryBar(); render();
+        loadData(snap.val());
+        refreshUI();
       });
-    }).catch(() => startWithLocalStorage());
-  } else {
-    window.addEventListener('firebase-ready', () => {
-      window._fbGet(window._fbRef(window._fbDb, 'data')).then(snapshot => {
-        initApp(snapshot.exists() ? snapshot.val() : null);
-        window._fbOnValue(window._fbRef(window._fbDb, 'data'), snap => {
-          if (!snap.exists()) return;
-          const d = snap.val();
-          scripts       = d.scripts       || scripts;
-          partners      = d.partners      || partners;
-          partnerColors = d.partnerColors || partnerColors;
-          if (d.users) { users = d.users; localStorage.setItem('scripts_users', JSON.stringify(users)); }
-          renderPartnerBar(); renderCategoryBar(); render();
-        });
-      }).catch(() => startWithLocalStorage());
+    }).catch(() => {
+      console.log('Firebase error, using localStorage.');
     });
-    // Fallback timeout if Firebase never loads
-    setTimeout(() => { if (!window._fbReady) startWithLocalStorage(); }, 4000);
+  }
+
+  if (window._fbReady) {
+    startFirebase();
+  } else {
+    window.addEventListener('firebase-ready', startFirebase);
+    setTimeout(() => { if (!window._fbReady) console.log('Firebase timeout, using localStorage.'); }, 4000);
   }
 </script>
 </body>
