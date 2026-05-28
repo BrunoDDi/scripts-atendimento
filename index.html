@@ -208,8 +208,11 @@
     .user-row-left{display:flex;align-items:center;gap:.6rem;flex:1;min-width:0;}
     .user-row-name{font-family:var(--mono);font-size:.8rem;}
     .user-row-actions{display:flex;gap:.4rem;}
-    .partner-checkbox-list{display:flex;flex-direction:column;gap:.4rem;max-height:160px;overflow-y:auto;margin-top:.4rem;}
-    .partner-checkbox-item{display:flex;align-items:center;gap:.5rem;font-family:var(--mono);font-size:.78rem;color:var(--text-muted);cursor:pointer;}
+    .partner-checkbox-list{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.4rem;}
+    .partner-checkbox-item{display:inline-flex;align-items:center;gap:.4rem;font-family:var(--mono);font-size:.72rem;color:var(--text-muted);cursor:pointer;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface);transition:all .15s;user-select:none;}
+    .partner-checkbox-item:hover{border-color:var(--accent);color:var(--text);}
+    .partner-checkbox-item:has(input:checked){border-color:var(--accent);background:rgba(124,92,252,.15);color:var(--accent);}
+    .partner-checkbox-item input{accent-color:var(--accent);width:12px;height:12px;}
     .partner-checkbox-item input{accent-color:var(--accent);}
     .tab-bar{display:flex;gap:0;margin-bottom:1.25rem;border-bottom:1px solid var(--border);}
     .tab-btn{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;padding:.5rem 1rem;background:none;border:none;border-bottom:2px solid transparent;color:var(--text-muted);cursor:pointer;transition:all .2s;margin-bottom:-1px;}
@@ -501,10 +504,10 @@
         <input type="text" id="inp-title" placeholder="Ex: Priorizar entrega" />
       </div>
       <div class="form-group">
-        <label>Parceiro</label>
-        <select id="inp-partner">
-          <option value="shared">Compartilhado (todos os parceiros)</option>
-        </select>
+        <label>Parceiros <span style="font-size:.65rem;color:var(--text-muted);text-transform:none;letter-spacing:0">(deixe todos desmarcados = compartilhado com todos)</span></label>
+        <div class="partner-checkbox-list" id="inp-partners-list" style="padding:2px 0;">
+          <span style="font-family:var(--mono);font-size:.75rem;color:var(--text-muted)" id="inp-partners-empty">Nenhum parceiro cadastrado ainda.</span>
+        </div>
       </div>
       <div class="form-group">
         <label>Categoria</label>
@@ -634,7 +637,7 @@
     if (currentSort === 'default')  return copy.sort(fav);
     if (currentSort === 'alpha')    return copy.sort((a,b) => fav(a,b) || a.title.localeCompare(b.title));
     if (currentSort === 'category') return copy.sort((a,b) => fav(a,b) || (a.category||'').localeCompare(b.category||'') || a.title.localeCompare(b.title));
-    if (currentSort === 'partner')  return copy.sort((a,b) => fav(a,b) || (a.partner||'').localeCompare(b.partner||'') || a.title.localeCompare(b.title));
+    if (currentSort === 'partner')  return copy.sort((a,b) => fav(a,b) || (Array.isArray(a.partner)?a.partner[0]:a.partner||'').localeCompare(Array.isArray(b.partner)?b.partner[0]:b.partner||'') || a.title.localeCompare(b.title));
     return copy;
   }
 
@@ -664,12 +667,18 @@
 
   function setPartner(p) { activePartner = p; renderPartnerBar(); render(); }
 
-  function refreshPartnerSelect() {
-    const sel = document.getElementById('inp-partner');
-    const cur = sel.value;
-    sel.innerHTML = `<option value="shared">Compartilhado (todos)</option>`
-      + partners.map(p => `<option value="${esc(p)}" ${cur===p?'selected':''}>${esc(p)}</option>`).join('');
-    if (cur && cur !== 'shared') sel.value = cur;
+  function refreshPartnerCheckboxes(selectedPartners) {
+    const list = document.getElementById('inp-partners-list');
+    if (!list) return;
+    const empty = document.getElementById('inp-partners-empty');
+    if (!partners.length) { if(empty) empty.style.display=''; return; }
+    if(empty) empty.style.display = 'none';
+    // keep existing checkboxes, just update list
+    list.innerHTML = partners.map(p => `
+      <label class="partner-checkbox-item">
+        <input type="checkbox" value="${esc(p)}" ${(selectedPartners||[]).includes(p)?'checked':''} />
+        ${esc(p)}
+      </label>`).join('');
   }
 
   /* ── Category bar ── */
@@ -766,14 +775,21 @@
     partners.push(name);
     if (!partnerColors[name]) partnerColors[name] = nextDefaultColor();
     persist(); inp.value = '';
-    renderModalPartners(); renderPartnerBar();
+    renderModalPartners(); renderPartnerBar(); refreshPartnerCheckboxes([]);
     showToast('Parceiro adicionado!', 'success');
   }
 
   function removePartner(name) {
     if (!confirm(`Remover "${name}"? Os scripts dele ficarão como compartilhados.`)) return;
     partners = partners.filter(p => p !== name);
-    scripts.forEach(s => { if (s.partner === name) s.partner = 'shared'; });
+    scripts.forEach(s => {
+      if (Array.isArray(s.partner)) {
+        s.partner = s.partner.filter(p => p !== name);
+        if (s.partner.length === 0) s.partner = 'shared';
+      } else if (s.partner === name) {
+        s.partner = 'shared';
+      }
+    });
     if (activePartner === name) activePartner = 'all';
     persist(); renderModalPartners(); renderPartnerBar(); render();
     showToast('Parceiro removido.', 'info');
@@ -792,8 +808,8 @@
       ['inp-title','inp-body','inp-internal','inp-category'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('dual-check').checked = false;
       document.getElementById('dual-fields').classList.remove('visible');
-      refreshPartnerSelect();
-      if (activePartner !== 'all') document.getElementById('inp-partner').value = activePartner;
+      const preselect = activePartner !== 'all' ? [activePartner] : [];
+      refreshPartnerCheckboxes(preselect);
       editingId = null;
       document.getElementById('form-title').textContent = 'Novo script';
       document.getElementById('inp-title').focus();
@@ -811,7 +827,8 @@
   function saveScript() {
     const title    = document.getElementById('inp-title').value.trim();
     const body     = document.getElementById('inp-body').value.trim();
-    const partner  = document.getElementById('inp-partner').value;
+    const selPartners = [...document.querySelectorAll('#inp-partners-list input[type="checkbox"]:checked')].map(c => c.value);
+    const partner  = selPartners.length ? selPartners : 'shared';
     const category = document.getElementById('inp-category').value.trim();
     const dual     = document.getElementById('dual-check').checked;
     const internal = document.getElementById('inp-internal').value.trim();
@@ -856,8 +873,8 @@
     document.getElementById('inp-body').value     = s.body;
     document.getElementById('inp-internal').value = s.internal || '';
     document.getElementById('inp-category').value = s.category || '';
-    refreshPartnerSelect();
-    document.getElementById('inp-partner').value  = s.partner || 'shared';
+    const selP = Array.isArray(s.partner) ? s.partner : (s.partner && s.partner !== 'shared' ? [s.partner] : []);
+    refreshPartnerCheckboxes(selP);
     const hasDual = !!(s.dual && s.internal);
     document.getElementById('dual-check').checked = hasDual;
     document.getElementById('dual-fields').classList.toggle('visible', hasDual);
@@ -984,11 +1001,13 @@
 
     let filtered = scripts.filter(s => {
       const sp = s.partner || 'shared';
+      const spArr = Array.isArray(sp) ? sp : (sp === 'shared' ? [] : [sp]);
+      const isShared = sp === 'shared' || spArr.length === 0;
       const vp2 = visiblePartners();
       const partnerAllowed = currentUser && currentUser.role !== 'master' && currentUser.partners.length
-        ? (sp === 'shared' || vp2.includes(sp))
+        ? (isShared || spArr.some(p => vp2.includes(p)))
         : true;
-      const matchPartner   = partnerAllowed && (activePartner === 'all' || sp === activePartner || sp === 'shared');
+      const matchPartner = partnerAllowed && (activePartner === 'all' || isShared || spArr.includes(activePartner));
       const matchCategory  = activeCategory  === 'all' || (s.category||'').toLowerCase() === activeCategory.toLowerCase();
       const matchSearch    = s.title.toLowerCase().includes(filter) || (s.category||'').toLowerCase().includes(filter);
       return matchPartner && matchCategory && matchSearch;
@@ -1001,10 +1020,12 @@
 
     list.innerHTML = filtered.map(s => {
       const sp2 = s.partner || 'shared';
-      const pc = sp2 !== 'shared' ? getPartnerColor(sp2) : null;
-      const partnerBadge = sp2 === 'shared'
+      const sp2Arr = Array.isArray(sp2) ? sp2 : (sp2 === 'shared' ? [] : [sp2]);
+      const isShared2 = sp2 === 'shared' || sp2Arr.length === 0;
+      const partnerBadge = isShared2
         ? `<span class="badge" style="background:rgba(107,107,138,.15);color:var(--text-muted);border:1px solid var(--border)">compartilhado</span>`
-        : `<span class="badge" style="background:${pc}22;color:${pc};border:1px solid ${pc}55">${esc(sp2)}</span>`;
+        : sp2Arr.map(p => { const c = getPartnerColor(p); return `<span class="badge" style="background:${c}22;color:${c};border:1px solid ${c}55">${esc(p)}</span>`; }).join('');
+      const pc = sp2Arr.length ? getPartnerColor(sp2Arr[0]) : null;
       const catBadge = s.category
         ? `<span class="badge badge-category">${esc(s.category)}</span>` : '';
       const dualBadge = s.dual
@@ -1048,7 +1069,7 @@
     grid.innerHTML = items.map(p => {
       const count = p.id === 'all'
         ? scripts.length
-        : scripts.filter(s => s.partner === p.id || s.partner === 'shared').length;
+        : scripts.filter(s => { const sp = s.partner||'shared'; return sp === 'shared' || (Array.isArray(sp) ? sp.includes(p.id) : sp === p.id); }).length;
       const initials = p.name.slice(0,2).toUpperCase();
       return `
         <div class="partner-select-card" onclick="selectPartnerFromWelcome('${esc(p.id)}')"
@@ -1125,17 +1146,17 @@
         </div>
         <div class="form-group">
           <label>Senha atual</label>
-          <input type="password" id="cp-current" class="login-inp" placeholder="senha atual" />
+          <input type="password" id="cp-current" placeholder="senha atual" />
         </div>
         <div class="form-group">
           <label>Nova senha</label>
-          <input type="password" id="cp-new" class="login-inp" placeholder="nova senha" />
+          <input type="password" id="cp-new" placeholder="nova senha" />
         </div>
         <div class="form-group">
           <label>Confirmar nova senha</label>
-          <input type="password" id="cp-confirm" class="login-inp" placeholder="confirmar nova senha" />
+          <input type="password" id="cp-confirm" placeholder="confirmar nova senha" />
         </div>
-        <div class="login-error" id="cp-error"></div>
+        <div class="login-error" id="cp-error" style="font-family:var(--mono);font-size:.72rem;color:var(--danger);margin-top:.25rem;display:none;"></div>
         <div class="form-actions" style="margin-top:1rem;">
           <button class="btn btn-primary" onclick="saveChangePassword()">
             <span class="ico"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span> Salvar
@@ -1183,13 +1204,13 @@
         </div>
         <div class="form-group">
           <label>Nova senha</label>
-          <input type="password" id="rp-new" class="login-inp" placeholder="nova senha" />
+          <input type="password" id="rp-new" placeholder="nova senha" />
         </div>
         <div class="form-group">
           <label>Confirmar nova senha</label>
-          <input type="password" id="rp-confirm" class="login-inp" placeholder="confirmar" />
+          <input type="password" id="rp-confirm" placeholder="confirmar" />
         </div>
-        <div class="login-error" id="rp-error"></div>
+        <div class="login-error" id="rp-error" style="font-family:var(--mono);font-size:.72rem;color:var(--danger);margin-top:.25rem;display:none;"></div>
         <div class="form-actions" style="margin-top:1rem;">
           <button class="btn btn-primary" onclick="saveResetPassword('${esc(username)}')">Redefinir</button>
           <button class="btn btn-ghost" onclick="document.getElementById('reset-pass-modal').remove()">Cancelar</button>
@@ -1324,8 +1345,7 @@
   function visiblePartners() {
     if (!currentUser) return partners;
     if (currentUser.role === 'master') return partners;
-    // manager/user: show only assigned partners (+ shared scripts always visible)
-    return currentUser.partners.length ? currentUser.partners.filter(p => partners.includes(p)) : partners;
+    return currentUser.partners && currentUser.partners.length ? currentUser.partners.filter(p => partners.includes(p)) : partners;
   }
 
   /* ── Users modal ── */
@@ -1344,11 +1364,11 @@
         </div>
         <div class="tab-content active" id="tab-list"></div>
         <div class="tab-content" id="tab-new">
-          <div class="form-group"><label>Usuário</label><input type="text" id="new-u-user" placeholder="nome de usuário" /></div>
-          <div class="form-group"><label>Senha</label><input type="password" id="new-u-pass" placeholder="senha" /></div>
+          <div class="form-group"><label>Usuário</label><input type="text" id="new-u-user" placeholder="nome de usuário" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:.85rem;padding:.65rem .9rem;outline:none;width:100%;transition:border-color .2s;" /></div>
+          <div class="form-group"><label>Senha</label><input type="password" id="new-u-pass" placeholder="senha" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:.85rem;padding:.65rem .9rem;outline:none;width:100%;transition:border-color .2s;" /></div>
           <div class="form-group">
             <label>Nível de acesso</label>
-            <select id="new-u-role">
+            <select id="new-u-role" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:.85rem;padding:.65rem .9rem;outline:none;width:100%;">
               <option value="user">Usuário</option>
               <option value="manager">Gerente</option>
             </select>
@@ -1456,11 +1476,11 @@
         ${isMaster ? `
         <div class="form-group">
           <label>Nova senha (deixe em branco para manter)</label>
-          <input type="password" id="edit-u-pass" placeholder="nova senha" />
+  <input type="password" id="edit-u-pass" placeholder="nova senha" />
         </div>
         <div class="form-group">
           <label>Nível de acesso</label>
-          <select id="edit-u-role">
+          <select id="edit-u-role" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:.85rem;padding:.65rem .9rem;outline:none;width:100%;">
             <option value="user" ${u.role==='user'?'selected':''}>Usuário</option>
             <option value="manager" ${u.role==='manager'?'selected':''}>Gerente</option>
           </select>
