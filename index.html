@@ -662,7 +662,6 @@
             : `border-color:${c}40;color:${c}`;
           return `<button class="partner-chip ${isActive?'active':''}" style="${style}" onclick="setPartner('${esc(p)}')">${esc(p)}</button>`;
         }).join('');
-    refreshPartnerSelect();
   }
 
   function setPartner(p) { activePartner = p; renderPartnerBar(); render(); }
@@ -1013,7 +1012,6 @@
     const userAllowed= (!isMaster && currentUser && currentUser.partners && currentUser.partners.length)
                        ? currentUser.partners : null;
 
-    console.log('render() called - scripts:', scripts.length, 'activePartner:', activePartner);
     let filtered = scripts.filter(s => {
       const spArr    = getPartnerArr(s.partner);
       const isShared = spArr.length === 0;
@@ -1039,7 +1037,6 @@
     });
 
     filtered = applySorting(filtered);
-    console.log('filtered results:', filtered.length, 'scripts');
 
     list.innerHTML = '';
     if (!filtered.length) { empty.style.display = 'block'; return; }
