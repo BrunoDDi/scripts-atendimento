@@ -1000,14 +1000,44 @@
     const filter = document.getElementById('search').value.toLowerCase();
 
     let filtered = scripts.filter(s => {
-      const sp = s.partner || 'shared';
-      const spArr = Array.isArray(sp) ? sp : (sp === 'shared' ? [] : [sp]);
-      const isShared = sp === 'shared' || spArr.length === 0;
+      const sp = s.partner;
+      // Normalize: undefined/null/'shared'/[] = shared with all
+      let spArr;
+      if (!sp || sp === 'shared') {
+        spArr = [];
+      } else if (Array.isArray(sp)) {
+        spArr = sp.filter(Boolean);
+      } else {
+        spArr = [sp];
+      }
+      const isShared = spArr.length === 0;
       const vp2 = visiblePartners();
-      const partnerAllowed = currentUser && currentUser.role !== 'master' && currentUser.partners.length
+      const partnerAllowed = currentUser && currentUser.role !== 'master' && currentUser.partners && currentUser.partners.length
         ? (isShared || spArr.some(p => vp2.includes(p)))
         : true;
-      const matchPartner = partnerAllowed && (activePartner === 'all' || isShared || spArr.includes(activePartner));
+      // If script has specific partners, only show when activePartner matches one of them
+      // For non-master users, "all" still respects their allowed partners
+      const userPartners = currentUser && currentUser.partners && currentUser.partners.length
+        ? currentUser.partners : null;
+
+      let matchPartner;
+      if (!partnerAllowed) {
+        matchPartner = false;
+      } else if (activePartner === 'all') {
+        if (isShared) {
+          // Shared scripts: visible to all, but if user has restricted access
+          // only show if at least one of their allowed partners exists or they have no restriction
+          matchPartner = true;
+        } else if (userPartners) {
+          // Non-master with restricted partners: only show script if it has
+          // at least one partner the user has access to
+          matchPartner = spArr.some(p => userPartners.includes(p));
+        } else {
+          matchPartner = true;
+        }
+      } else {
+        matchPartner = isShared || spArr.includes(activePartner);
+      }
       const matchCategory  = activeCategory  === 'all' || (s.category||'').toLowerCase() === activeCategory.toLowerCase();
       const matchSearch    = s.title.toLowerCase().includes(filter) || (s.category||'').toLowerCase().includes(filter);
       return matchPartner && matchCategory && matchSearch;
